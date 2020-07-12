@@ -1,0 +1,93 @@
+version: '3.1'
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper:3.4.6
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - elk
+
+  kafka:
+    image: wurstmeister/kafka:2.12-2.2.0
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1001
+      KAFKA_RESERVED_BROKER_MAX_ID: 1002
+      KAFKA_ADVERTISED_HOST_NAME:  127.0.0.1
+      KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # KAFKA_CREATE_TOPICS: "test-topic03:1:1,test-topic04:1:1"   # MUST NOT USE WITH "jmx_prometheus_javaagent"
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.rmi.port=9999"
+      JMX_PORT: 9999
+      KAFKA_OPTS: "$KAFKA_OPTS -javaagent:/usr/local/bin/jmx_prometheus_javaagent-0.13.0.jar=9998:/etc/jmx-exporter/kafka-2_0_0.yml"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./prometheus-jmx-exporter/kafka-2_0_0.yml:/etc/jmx-exporter/kafka-2_0_0.yml
+      - ./prometheus-jmx-exporter/jmx_prometheus_javaagent-0.13.0.jar:/usr/local/bin/jmx_prometheus_javaagent-0.13.0.jar
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+      - "9998:9998"
+      - "9999:9999"
+    depends_on:
+      - zookeeper
+    networks:
+      - elk
+
+  # kafka-manager:
+  #   container_name: kafka-manager
+  #   image: hlebalbau/kafka-manager:3.0.0.5
+  #   # restart: on-failure
+  #   depends_on:
+  #   - kafka
+  #   - zookeeper
+  #   environment:
+  #     ZK_HOSTS: zookeeper:2181
+  #     APPLICATION_SECRET: "random"
+  #     KM_ARGS: -Djava.net.preferIPv4Stack=true
+  #   ports:
+  #   - "9000:9000"
+  #   networks:
+  #   - elk
+  
+  # zookeeper-navigator:
+  #   container_name: zoonavigator
+  #   image: elkozmon/zoonavigator:1.0.1
+  #   depends_on: 
+  #   - zookeeper
+  #   environment: 
+  #     HTTP_PORT: 9001
+  #   ports: 
+  #   - "9001:9001"
+  #   networks:
+  #   - elk
+
+  prometheus:
+    ports:
+      - 9090:9090
+    image: prom/prometheus
+    # environment: 
+    #   KAFKA_BOOTSTRAP_SERVERS: kafka:9999
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - elk
+    depends_on:
+      - kafka
+      - zookeeper
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - 3000:3000
+    networks:
+      - elk
+    depends_on:
+      - prometheus
+
+
+networks:
+  elk:
+    driver: bridge
+

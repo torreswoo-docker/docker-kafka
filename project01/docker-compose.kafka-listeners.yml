@@ -1,0 +1,81 @@
+version: '3.1'
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper:3.4.6
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - elk
+
+  kafka:
+    image: wurstmeister/kafka:2.12-2.2.0
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1001
+      KAFKA_RESERVED_BROKER_MAX_ID: 1002
+      #
+      # KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka:19092,LISTENER_DOCKER_EXTERNAL://localhost:9092
+      # KAFKA_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka:19092,LISTENER_DOCKER_EXTERNAL://localhost:9092
+      # KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      # KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      #
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:19092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://kafka:19092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      #
+      # KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092
+      # KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      #
+      # KAFKA_ADVERTISED_HOST_NAME:  127.0.0.1
+      # KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "test-topic03:1:1,test-topic04:1:1"   # Topic명:Partition개수:Replica개수
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.rmi.port=9999"
+      JMX_PORT: 9999
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+      - "9999:9999"
+    depends_on:
+      - zookeeper
+    networks:
+      - elk
+
+  kafka-manager:
+    container_name: kafka-manager
+    image: hlebalbau/kafka-manager:3.0.0.5
+    # restart: on-failure
+    depends_on:
+    - kafka
+    - zookeeper
+    environment:
+      ZK_HOSTS: zookeeper:2181
+      APPLICATION_SECRET: "random"
+      KM_ARGS: -Djava.net.preferIPv4Stack=true
+    ports:
+    - "9000:9000"
+    networks:
+    - elk
+  
+  zoonavigator:
+    container_name: zoonavigator
+    image: elkozmon/zoonavigator:1.0.1
+    depends_on: 
+    - zookeeper
+    environment: 
+      HTTP_PORT: 9001
+      AUTO_CONNECT_CONNECTION_STRING: zookeepers:2181
+    ports: 
+    - "9001:9001"
+    networks:
+    - elk
+
+
+networks:
+  elk:
+    driver: bridge
+
