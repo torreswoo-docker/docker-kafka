@@ -19,6 +19,9 @@
 - https://github.com/hleb-albau/kafka-manager-docker (CMAK)
 - kafka manager : http://localhost:9000/
 
+### KafkaHQ (AKHQ)
+- https://github.com/tchiotludo/akhq
+
 ### zookeeper Navigator
 - https://github.com/elkozmon/zoonavigator
 
